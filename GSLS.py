@@ -2,21 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 
-def ker(x_i: np.ndarray, x_j:np.ndarray, sigma:float=0.8) -> float:
-    """
-    Computes the Gaussian kernel between two data points x and y.
-
-    Parameters:
-    x_i : numpy.ndarray
-        Input data point.
-    x_j : numpy.ndarray
-        Input data point.
-    sigma : float, optional
-        Kernel parameter controlling the spread of the kernel (default is 0.8).
-
-    Returns:
-    float: The Gaussian kernel similarity between x_i and x_j.
-    """
+def ker(x_i: np.ndarray, x_j:np.ndarray, sigma:float=1) -> float:
     distance = np.sum((x_i - x_j) ** 2)
 
     kernel_value = np.exp(-distance / (2 * sigma ** 2))
@@ -44,8 +30,9 @@ class GSLS:
         self.gamma = gamma
         self.S = OrderedDict() # {idx(int): x_{idx}}
         self.beta = OrderedDict() # {idx(int): beta_{idx}}
-        self.b = None
+        self.b = sum(y_train)/self.l
         self.RMSES = {}
+
     def Omega(self)-> np.ndarray:
         S = self.S
         l = self.l
@@ -55,7 +42,7 @@ class GSLS:
         Omega = np.zeros((len(S.keys()), len(S.keys())))
         for i, key_i in enumerate(S.keys()):
             for j, key_j in enumerate(S.keys()):
-                Omega[i][j] = (l/(2*gamma))*ker(S[key_i], S[key_j]) + sum(ker(D[r][0], S[key_j])*ker(D[r][0], S[key_i]) for r in range(1, l+1))
+                Omega[-i-1][-j-1] = (l/(2*gamma))*ker(S[key_i], S[key_j]) + sum(ker(D[r][0], S[key_j])*ker(D[r][0], S[key_i]) for r in range(1, l+1))
         return Omega
 
     def Phi(self) -> np.ndarray:
@@ -64,7 +51,7 @@ class GSLS:
         D = self.D
         Phi = np.zeros((len(S.keys()), 1))
         for i, key_i in enumerate(S.keys()):
-            Phi[i, 0] = sum(ker(S[key_i], D[j][0]) for j in range(1, l+1))
+            Phi[-i-1, 0] = sum(ker(S[key_i], D[j][0]) for j in range(1, l+1))
         #print(Phi)
         return Phi
 
@@ -74,7 +61,7 @@ class GSLS:
         D = self.D
         c = np.zeros((len(S.keys()),1))
         for i, key_i in enumerate(S.keys()):
-            c[i, 0] = sum(D[j][1]*ker(S[key_i], D[j][0]) for j in range(1, l+1))
+            c[-i-1, 0] = sum(D[j][1]*ker(S[key_i], D[j][0]) for j in range(1, l+1))
         return c
     def L(self) -> float:
         S = self.S
@@ -92,8 +79,8 @@ class GSLS:
         
         right_term = 0 
         for i in range(1, l+1):
-            for j in S.keys():
-                right_term += (gamma/l)*(D[i][1]-beta[j]*ker(D[i][0], S[j]) - b)**2
+            inner_sum = sum(beta[j]*ker(D[i][0], S[j]) for j in S.keys())
+            right_term += (gamma/l)*(D[i][1] - inner_sum - b)**2
         L = left_term + right_term
         return L
 
@@ -148,8 +135,8 @@ class GSLS:
         D = self.D
         x_train = [pair[0] for pair in D.values()]
         y_train = [pair[1] for pair in D.values()]
-        plt.plot(x_train, y_train, marker='o', linestyle='-', label = 'Train')
-        plt.plot(x_train, np.array([self.regressor(x[0]) for x in D.values()]), marker='x', linestyle='-', label = 'Predicted')
+        plt.plot(x_train, y_train, marker='o', label = 'Train') # linestyle='-',
+        plt.plot(x_train, np.array([self.regressor(x[0]) for x in D.values()]), marker='x', linestyle='-', label = 'Predicted Train')
         plt.xlabel('X')
         plt.ylabel('Y')
         plt.title('Without noise')
