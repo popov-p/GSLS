@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 
-def ker(x_i: np.ndarray, x_j:np.ndarray, sigma:float=1) -> float:
+def ker(x_i: np.ndarray, x_j:np.ndarray, sigma:float=0.8) -> float:
     distance = np.sum((x_i - x_j) ** 2)
 
     kernel_value = np.exp(-distance / (2 * sigma ** 2))
@@ -10,16 +10,6 @@ def ker(x_i: np.ndarray, x_j:np.ndarray, sigma:float=1) -> float:
     return kernel_value
 
 def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """
-    Calculate RMSE (Root Mean Square Error).
-    
-    Parameters:
-        y_true: numpy array, real values
-        y_pred: numpy array, predicted values
-    
-    Returns:
-        float: RMSE between y_true and y_pred
-    """
     return np.sqrt(np.mean((y_true - y_pred) ** 2))
 
 class GSLS:
@@ -52,7 +42,6 @@ class GSLS:
         Phi = np.zeros((len(S.keys()), 1))
         for i, key_i in enumerate(S.keys()):
             Phi[-i-1, 0] = sum(ker(S[key_i], D[j][0]) for j in range(1, l+1))
-        #print(Phi)
         return Phi
 
     def c(self) -> np.ndarray:
@@ -103,8 +92,6 @@ class GSLS:
 
                             sol = np.linalg.solve(H, np.vstack((self.c(), sum(D[k][1] for k in range(1, l+1)))))
                             self.b = sol[-1]
-                            #if not isinstance(sol, list):
-                            #    sol = [sol]
 
                             for idx, beta_idx in zip(S.keys(), reversed(sol[:-1])): #beta_idx - beta by index idx. ex: beta_1 = ... etc..
                                 beta[idx] = beta_idx
@@ -127,19 +114,30 @@ class GSLS:
         b = self.b
         value = 0 
         for i in beta.keys():
-            value += beta[i]*ker(S[i][0], x)
+            value += beta[i]*ker(S[i], x)
 
         return value + b
     
     def plot(self):
         D = self.D
+        S = self.S
         x_train = [pair[0] for pair in D.values()]
         y_train = [pair[1] for pair in D.values()]
-        plt.plot(x_train, y_train, marker='o', label = 'Train') # linestyle='-',
-        plt.plot(x_train, np.array([self.regressor(x[0]) for x in D.values()]), marker='x', linestyle='-', label = 'Predicted Train')
+        plt.plot(x_train, y_train, marker='o', linestyle='-', label = 'Noise')
+        plt.plot(x_train, np.array([self.regressor(x[0]) for x in D.values()]), marker='x', linestyle='-', label = 'Predicted', color = 'y')
+        plt.plot(S.values(), [y_train[i-1] for i in S.keys()], marker='s', linestyle='None', label = 'SV', color='r')
         plt.xlabel('X')
         plt.ylabel('Y')
-        plt.title('Without noise')
+        plt.title('With noise')
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+    def plot_rmse(self):
+        RMSES = self.RMSES
+        plt.plot(RMSES.keys(), RMSES.values(),label='RMSE')
+        plt.xlabel('SV count')
+        plt.ylabel('RMSE')
+        plt.title('RMSE-SV plot')
         plt.grid(True)
         plt.legend()
         plt.show()
