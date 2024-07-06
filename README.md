@@ -1,2 +1,2 @@
-# Машина опорных векторов.
-Алгоритм Greedy Sparse Least Squares.
+# Машина опорных векторов
+Алгоритм Greedy Sparse Least Squares
